@@ -6,6 +6,7 @@ app = Flask(__name__)
 history = []
 predictions = []
 hot_hits = 0
+dynamic_hits = 0
 all_hits = 0
 total_tests = 0
 current_stage = 1
@@ -15,12 +16,13 @@ TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-  <title>2碼預測器</title>
+  <title>3碼預測器</title>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
 </head>
 <body style='max-width: 400px; margin: auto; padding-top: 40px; font-family: sans-serif; text-align: center;'>
-  <h2>2碼預測器</h2>
-  <div>版本：熱號2（公版UI）</div>
+  <h2>3碼預測器</h2>
+  <div>版本：熱號2 + 動熱1（公版UI）</div>
+
   <form method='POST'>
     <input name='first' id='first' placeholder='冠軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'second')" inputmode="numeric"><br><br>
     <input name='second' id='second' placeholder='亞軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'third')" inputmode="numeric"><br><br>
@@ -50,6 +52,7 @@ TEMPLATE = """
       <strong>命中統計：</strong><br>
       冠軍命中次數（任一區）：{{ all_hits }} / {{ total_tests }}<br>
       熱號命中次數：{{ hot_hits }}<br>
+      動熱命中次數：{{ dynamic_hits }}<br>
     </div>
   {% endif %}
 
@@ -81,7 +84,7 @@ TEMPLATE = """
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global hot_hits, all_hits, total_tests, current_stage, training_mode
+    global hot_hits, dynamic_hits, all_hits, total_tests, current_stage, training_mode
     prediction = None
     last_prediction = predictions[-1] if predictions else None
 
@@ -93,23 +96,18 @@ def index():
             current = [first, second, third]
             history.append(current)
 
-            # 判定關卡與統計
-            if last_prediction and (training_mode or len(history) > 5):
+            if training_mode and last_prediction:
                 champion = current[0]
-                if training_mode:
-                    total_tests += 1
-                    if champion in last_prediction:
-                        all_hits += 1
-                        current_stage = 1
-                    else:
-                        current_stage += 1
-                    if champion in last_prediction:
-                        hot_hits += 1
+                total_tests += 1
+                if champion in last_prediction:
+                    all_hits += 1
+                    current_stage = 1
                 else:
-                    if champion in last_prediction:
-                        current_stage = 1
-                    else:
-                        current_stage += 1
+                    current_stage += 1
+                if champion in last_prediction[:2]:
+                    hot_hits += 1
+                elif champion == last_prediction[2]:
+                    dynamic_hits += 1
 
             if training_mode or len(history) >= 5:
                 prediction = generate_prediction()
@@ -125,24 +123,25 @@ def index():
         training=training_mode,
         history=history,
         hot_hits=hot_hits,
+        dynamic_hits=dynamic_hits,
         all_hits=all_hits,
         total_tests=total_tests)
 
 @app.route('/toggle')
 def toggle():
-    global training_mode, hot_hits, all_hits, total_tests, current_stage, predictions
+    global training_mode, hot_hits, dynamic_hits, all_hits, total_tests, current_stage, predictions
     training_mode = not training_mode
-    hot_hits = all_hits = total_tests = 0
+    hot_hits = dynamic_hits = all_hits = total_tests = 0
     current_stage = 1
     predictions = []
     return redirect('/')
 
 @app.route('/reset')
 def reset():
-    global history, predictions, hot_hits, all_hits, total_tests, current_stage
+    global history, predictions, hot_hits, dynamic_hits, all_hits, total_tests, current_stage
     history.clear()
     predictions.clear()
-    hot_hits = all_hits = total_tests = 0
+    hot_hits = dynamic_hits = all_hits = total_tests = 0
     current_stage = 1
     return redirect('/')
 
@@ -150,8 +149,14 @@ def generate_prediction():
     recent = history[-3:]
     flat = [n for group in recent for n in group]
     freq = Counter(flat)
-    hot = [n for n, _ in freq.most_common(2)]
-    return sorted(hot)
+    hot = [n for n, _ in freq.most_common(3)][:2]
+
+    flat_dynamic = [n for n in flat if n not in hot]
+    freq_dyn = Counter(flat_dynamic)
+    dynamic_pool = sorted(freq_dyn.items(), key=lambda x: (-x[1], -flat_dynamic[::-1].index(x[0])))
+    dynamic = [n for n, _ in dynamic_pool[:1]]
+
+    return sorted(hot + dynamic)
 
 if __name__ == '__main__':
     app.run(debug=True)
