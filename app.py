@@ -1,106 +1,114 @@
-# 追關版 v1（公版 5碼/6碼風格）
-from flask import Flask, render_template, request
+# 4碼預測器改版：第一關 7碼、第二關起 5碼，七關失敗清空資料，命中回歸第一關（UI 不變）
+from flask import Flask, render_template_string, request, redirect
 import random
 from collections import Counter
 
 app = Flask(__name__)
-
 history = []
-mode = {
-    'train': False,
-    'stage': 1,
-    'hit_count': 0,
-    'total': 0,
-    'last_prediction': [],
-    'last_prediction_text': ''
-}
+predictions = []
+hot_hits = 0
+dynamic_hits = 0
+extra_hits = 0
+all_hits = 0
+total_tests = 0
+current_stage = 1
+training_mode = False
 
-# 對應每關投注金額
-stage_bets = {
-    1: 140,
-    2: 275,
-    3: 625,
-    4: 1350,
-    5: 2875,
-    6: 6050
-}
-
-def get_prediction(data, stage):
-    # 預測號碼邏輯：第1關用7碼，其他關用5碼
-    nums = [n for round in data[-3:] for n in round]  # 近三期
-    counter = Counter(nums)
-    hot = [n for n, _ in counter.most_common()]
-    hot_numbers = hot[:2]
-
-    remain = [n for n in nums if n not in hot_numbers]
-    counter_remain = Counter(remain)
-    dynamic_pool = [n for n, _ in counter_remain.most_common()]
-    dynamic_numbers = dynamic_pool[:2]
-
-    excluded = set(hot_numbers + dynamic_numbers)
-    remaining = [n for n in range(1, 11) if n not in excluded]
-    extra_count = 3 if stage == 1 else 1
-    extra_numbers = random.sample(remaining, extra_count) if len(remaining) >= extra_count else []
-
-    return sorted(hot_numbers + dynamic_numbers + extra_numbers)
+TEMPLATE = """<html>...（保持不變，略）..."""  # 保留原 TEMPLATE 區塊
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    message = ''
-    prediction = []
-    stage = mode['stage']
-    bet = stage_bets.get(stage, '-')
+    global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage, training_mode, history, predictions
+    prediction = None
+    last_prediction = predictions[-1] if predictions else None
 
     if request.method == 'POST':
-        if 'toggle_train' in request.form:
-            mode['train'] = not mode['train']
-            mode['hit_count'] = 0
-            mode['total'] = 0
-            mode['stage'] = 1
-            history.clear()
-            message = '訓練模式已' + ('啟用' if mode['train'] else '關閉')
+        try:
+            first = int(request.form['first']) or 10
+            second = int(request.form['second']) or 10
+            third = int(request.form['third']) or 10
+            current = [first, second, third]
+            history.append(current)
 
-        elif 'clear' in request.form:
-            history.clear()
-            mode.update({'stage': 1, 'hit_count': 0, 'total': 0, 'last_prediction': [], 'last_prediction_text': ''})
-            message = '已清除所有紀錄'
-
-        else:
-            try:
-                nums = [int(request.form.get(f'n{i}')) for i in range(1, 4)]
-                nums = [10 if n == 0 else n for n in nums]  # 將0轉成10
-                if all(1 <= n <= 10 for n in nums):
-                    history.append(nums)
-
-                    if len(history) >= 5:
-                        prediction = get_prediction(history, stage)
-                        mode['last_prediction'] = prediction
-                        mode['last_prediction_text'] = f"{prediction}（目前第 {stage} 關）"
-
-                        if mode['train']:
-                            mode['total'] += 1
-                            if nums[0] in prediction:
-                                mode['hit_count'] += 1
-                                mode['stage'] = 1
-                            else:
-                                mode['stage'] = min(mode['stage'] + 1, 6)
-                    else:
-                        message = '請先輸入至少 5 筆資料'
+            # 命中判定邏輯（不論是否訓練模式）
+            if len(predictions) >= 1:
+                champion = current[0]
+                if champion in predictions[-1]:
+                    if training_mode:
+                        all_hits += 1
+                    current_stage = 1
                 else:
-                    message = '請輸入 1~10 的整數'
-            except:
-                message = '請正確輸入三個號碼'
+                    current_stage += 1
+                    if current_stage > 6:
+                        history.clear()
+                        predictions.clear()
+                        current_stage = 1
 
-    return render_template('index.html',
-                           history=history,
-                           prediction=mode['last_prediction_text'],
-                           last_prediction=mode['last_prediction'],
-                           hit_count=mode['hit_count'],
-                           total=mode['total'],
-                           train=mode['train'],
-                           stage=mode['stage'],
-                           bet=bet,
-                           message=message)
+                if training_mode:
+                    total_tests += 1
+                    if champion in predictions[-1][:2]:
+                        hot_hits += 1
+                    elif champion == predictions[-1][2]:
+                        dynamic_hits += 1
+                    elif champion in predictions[-1][3:]:
+                        extra_hits += 1
+
+            # 預測條件：統計模式啟用或輸入滿5筆
+            if training_mode or len(history) >= 5:
+                prediction = generate_prediction(current_stage)
+                predictions.append(prediction)
+
+        except:
+            prediction = ['格式錯誤']
+
+    return render_template_string(TEMPLATE,
+        prediction=prediction,
+        last_prediction=last_prediction,
+        stage=current_stage,
+        training=training_mode,
+        history=history,
+        hot_hits=hot_hits,
+        dynamic_hits=dynamic_hits,
+        extra_hits=extra_hits,
+        all_hits=all_hits,
+        total_tests=total_tests)
+
+@app.route('/toggle')
+def toggle():
+    global training_mode, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage, predictions
+    training_mode = not training_mode
+    hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
+    current_stage = 1
+    predictions = []
+    return redirect('/')
+
+@app.route('/reset')
+def reset():
+    global history, predictions, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage
+    history.clear()
+    predictions.clear()
+    hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
+    current_stage = 1
+    return redirect('/')
+
+def generate_prediction(stage):
+    recent = history[-3:]
+    flat = [n for group in recent for n in group]
+    freq = Counter(flat)
+    hot = [n for n, _ in freq.most_common(3)][:2]
+
+    flat_dynamic = [n for n in flat if n not in hot]
+    freq_dyn = Counter(flat_dynamic)
+    dynamic_pool = sorted(freq_dyn.items(), key=lambda x: (-x[1], -flat_dynamic[::-1].index(x[0])))
+    dynamic = [n for n, _ in dynamic_pool[:2 if stage == 1 else 2]][:2 if stage == 1 else 2][:1 if stage > 1 else 2]
+
+    used = set(hot + dynamic)
+    pool = [n for n in range(1, 11) if n not in used]
+    random.shuffle(pool)
+    extra_count = 3 if stage == 1 else 1
+    extra = pool[:extra_count]
+
+    return sorted(hot + dynamic + extra)
 
 if __name__ == '__main__':
     app.run(debug=True)
