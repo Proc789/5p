@@ -1,162 +1,102 @@
-from flask import Flask, render_template_string, request, redirect
+# 追關版 v1 - 套用公版 UI + 7碼首關 + 5碼追關邏輯
+from flask import Flask, render_template, request
 import random
 from collections import Counter
 
 app = Flask(__name__)
+
 history = []
-predictions = []
-hot_hits = 0
-dynamic_hits = 0
-all_hits = 0
-total_tests = 0
-current_stage = 1
-training_mode = False
+mode = {'train': False, 'stage': 1, 'hit_count': 0, 'total': 0, 'last_prediction': []}
 
-TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-  <title>3碼預測器</title>
-  <meta name='viewport' content='width=device-width, initial-scale=1'>
-</head>
-<body style='max-width: 400px; margin: auto; padding-top: 40px; font-family: sans-serif; text-align: center;'>
-  <h2>3碼預測器</h2>
-  <div>版本：熱號2 + 動熱1（公版UI）</div>
+# 對應每關投注金額（可依表調整）
+stage_bets = {
+    1: 140,
+    2: 275,
+    3: 625,
+    4: 1350,
+    5: 2875,
+    6: 6050
+}
 
-  <form method='POST'>
-    <input name='first' id='first' placeholder='冠軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'second')" inputmode="numeric"><br><br>
-    <input name='second' id='second' placeholder='亞軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'third')" inputmode="numeric"><br><br>
-    <input name='third' id='third' placeholder='季軍' required style='width: 80%; padding: 8px;' inputmode="numeric"><br><br>
-    <button type='submit' style='padding: 10px 20px;'>提交</button>
-  </form>
-  <br>
-  <a href='/toggle'><button>{{ '關閉統計模式' if training else '啟動統計模式' }}</button></a>
-  <a href='/reset'><button style='margin-left: 10px;'>清除所有資料</button></a>
+# 熱號：最近三期所有號碼中出現最多的前2碼
+# 動熱：排除熱號後，取最多的前2碼（7碼取2，5碼也取2）
+# 補碼：從1~10中排除前述號碼後隨機取（7碼取3，5碼取1）
+def get_prediction(data, stage):
+    numbers = [n for round in data[-3:] for n in round]  # 近三期所有號碼
+    counter = Counter(numbers)
+    hot = [n for n, _ in counter.most_common()]
 
-  {% if prediction %}
-    <div style='margin-top: 20px;'>
-      <strong>本期預測號碼：</strong> {{ prediction }}（目前第 {{ stage }} 關）
-    </div>
-  {% endif %}
-  {% if last_prediction %}
-    <div style='margin-top: 10px;'>
-      <strong>上期預測號碼：</strong> {{ last_prediction }}
-    </div>
-  {% endif %}
-  {% if stage and (training or history|length >= 5) %}
-    <div style='margin-top: 10px;'>目前第 {{ stage }} 關</div>
-  {% endif %}
+    hot_numbers = hot[:2]
+    remain = [n for n in numbers if n not in hot_numbers]
+    counter_remain = Counter(remain)
+    dynamic_pool = [n for n, _ in counter_remain.most_common()]
+    dynamic_numbers = dynamic_pool[:2]
 
-  {% if training %}
-    <div style='margin-top: 20px; text-align: left;'>
-      <strong>命中統計：</strong><br>
-      冠軍命中次數（任一區）：{{ all_hits }} / {{ total_tests }}<br>
-      熱號命中次數：{{ hot_hits }}<br>
-      動熱命中次數：{{ dynamic_hits }}<br>
-    </div>
-  {% endif %}
+    excluded = set(hot_numbers + dynamic_numbers)
+    remaining_numbers = [n for n in range(1, 11) if n not in excluded]
+    if stage == 1:
+        extra_count = 3
+    else:
+        extra_count = 1
+    extra_numbers = random.sample(remaining_numbers, extra_count) if len(remaining_numbers) >= extra_count else []
 
-  {% if history %}
-    <div style='margin-top: 20px; text-align: left;'>
-      <strong>最近輸入紀錄：</strong>
-      <ul>
-        {% for row in history[-10:] %}
-          <li>第 {{ loop.index }} 期：{{ row }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-
-  <script>
-    function moveToNext(current, nextId) {
-      setTimeout(() => {
-        if (current.value === '0') current.value = '10';
-        let val = parseInt(current.value);
-        if (!isNaN(val) && val >= 1 && val <= 10) {
-          document.getElementById(nextId).focus();
-        }
-      }, 100);
-    }
-  </script>
-</body>
-</html>
-"""
+    prediction = sorted(hot_numbers + dynamic_numbers + extra_numbers)
+    return prediction
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global hot_hits, dynamic_hits, all_hits, total_tests, current_stage, training_mode
-    prediction = None
-    last_prediction = predictions[-1] if predictions else None
+    message = ''
+    prediction = []
+    stage = mode['stage']
+    bet = stage_bets.get(stage, '-')
 
     if request.method == 'POST':
-        try:
-            first = int(request.form['first']) or 10
-            second = int(request.form['second']) or 10
-            third = int(request.form['third']) or 10
-            current = [first, second, third]
-            history.append(current)
+        if 'toggle_train' in request.form:
+            mode['train'] = not mode['train']
+            mode['hit_count'] = 0
+            mode['total'] = 0
+            mode['stage'] = 1
+            message = '訓練模式已' + ('啟用' if mode['train'] else '關閉')
 
-            if training_mode and last_prediction:
-                champion = current[0]
-                total_tests += 1
-                if champion in last_prediction:
-                    all_hits += 1
-                    current_stage = 1
+        elif 'clear' in request.form:
+            history.clear()
+            mode.update({'stage': 1, 'hit_count': 0, 'total': 0, 'last_prediction': []})
+            message = '已清除所有紀錄'
+
+        else:
+            try:
+                nums = [int(request.form.get(f'n{i}')) for i in range(1, 4)]
+                if all(1 <= n <= 10 for n in nums):
+                    history.append(nums)
+
+                    if len(history) >= 5:
+                        prediction = get_prediction(history, stage)
+                        mode['last_prediction'] = prediction
+
+                        # 命中判定（是否包含冠軍號）
+                        if mode['train']:
+                            mode['total'] += 1
+                            if nums[0] in prediction:
+                                mode['hit_count'] += 1
+                                mode['stage'] = 1  # 命中回第一關
+                            else:
+                                mode['stage'] += 1 if mode['stage'] < 6 else 6
+                    else:
+                        message = '請先輸入至少 5 筆資料'
                 else:
-                    current_stage += 1
-                if champion in last_prediction[:2]:
-                    hot_hits += 1
-                elif champion == last_prediction[2]:
-                    dynamic_hits += 1
+                    message = '請輸入 1~10 之間的數字'
+            except:
+                message = '請正確輸入三個號碼'
 
-            if training_mode or len(history) >= 5:
-                prediction = generate_prediction()
-                predictions.append(prediction)
-
-        except:
-            prediction = ['格式錯誤']
-
-    return render_template_string(TEMPLATE,
-        prediction=prediction,
-        last_prediction=last_prediction,
-        stage=current_stage,
-        training=training_mode,
-        history=history,
-        hot_hits=hot_hits,
-        dynamic_hits=dynamic_hits,
-        all_hits=all_hits,
-        total_tests=total_tests)
-
-@app.route('/toggle')
-def toggle():
-    global training_mode, hot_hits, dynamic_hits, all_hits, total_tests, current_stage, predictions
-    training_mode = not training_mode
-    hot_hits = dynamic_hits = all_hits = total_tests = 0
-    current_stage = 1
-    predictions = []
-    return redirect('/')
-
-@app.route('/reset')
-def reset():
-    global history, predictions, hot_hits, dynamic_hits, all_hits, total_tests, current_stage
-    history.clear()
-    predictions.clear()
-    hot_hits = dynamic_hits = all_hits = total_tests = 0
-    current_stage = 1
-    return redirect('/')
-
-def generate_prediction():
-    recent = history[-3:]
-    flat = [n for group in recent for n in group]
-    freq = Counter(flat)
-    hot = [n for n, _ in freq.most_common(3)][:2]
-
-    flat_dynamic = [n for n in flat if n not in hot]
-    freq_dyn = Counter(flat_dynamic)
-    dynamic_pool = sorted(freq_dyn.items(), key=lambda x: (-x[1], -flat_dynamic[::-1].index(x[0])))
-    dynamic = [n for n, _ in dynamic_pool[:1]]
-
-    return sorted(hot + dynamic)
+    return render_template('index.html', 
+                           history=history,
+                           prediction=mode['last_prediction'],
+                           hit_count=mode['hit_count'],
+                           total=mode['total'],
+                           train=mode['train'],
+                           stage=mode['stage'],
+                           bet=bet,
+                           message=message)
 
 if __name__ == '__main__':
     app.run(debug=True)
