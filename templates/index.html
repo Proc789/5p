@@ -5,7 +5,8 @@
   <title>預測器 - 追關版 v1</title>
   <style>
     body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-    h1 { margin-bottom: 5px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; margin-top: 10px; }
     input[type=number] {
       width: 70px;
       height: 60px;
@@ -24,9 +25,14 @@
     }
     ul { padding-left: 20px; }
     .info { margin-top: 20px; }
+    .label-row {
+      display: flex;
+      gap: 60px;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
   </style>
   <script>
-    // 自動跳格
     function setupAutoTab() {
       const inputs = document.querySelectorAll("input[type=number]");
       inputs.forEach((input, idx) => {
@@ -42,7 +48,12 @@
 </head>
 <body>
   <h1>預測器 - 追關版 v1</h1>
+  <h2>版本：第1關使用7碼預測，第2關起使用5碼預測（含投注金額提示）</h2>
+
   <form method="post">
+    <div class="label-row">
+      <span>冠軍</span><span>亞軍</span><span>季軍</span>
+    </div>
     <div class="number-inputs">
       <input type="number" name="n1" min="1" max="10" required autofocus>
       <input type="number" name="n2" min="1" max="10" required>
@@ -60,11 +71,16 @@
     <p>建議投注金額：${{ bet }}</p>
 
     {% if prediction %}
-      <p>預測號碼：<strong>{{ prediction }}</strong></p>
+      <p><strong>本期預測號碼：</strong>{{ prediction }}（目前第 {{ stage }} 關）</p>
     {% endif %}
 
     {% if train %}
-      <p>命中：{{ hit_count }} / {{ total }}（{{ (hit_count / total * 100)|round(1) if total else 0 }}%）</p>
+      <p><strong>訓練模式命中統計：</strong></p>
+      <ul>
+        <li>命中次數：{{ hit_count }}</li>
+        <li>總測試次數：{{ total }}</li>
+        <li>命中率：{{ (hit_count / total * 100)|round(1) if total else 0 }}%</li>
+      </ul>
     {% endif %}
 
     {% if history %}
