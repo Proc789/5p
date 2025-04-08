@@ -1,14 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <title>預測器 - 追關版 v1</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    input[type=number] { width: 60px; font-size: 20px; margin: 5px; text-align: center; }
-    .number-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
-    .info { margin-top: 15px; }
+    body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+    h1 { margin-bottom: 5px; }
+    input[type=number] {
+      width: 70px;
+      height: 60px;
+      font-size: 28px;
+      text-align: center;
+      margin-right: 10px;
+    }
+    .number-inputs {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    button {
+      font-size: 16px;
+      padding: 6px 12px;
+      margin-right: 5px;
+    }
+    ul { padding-left: 20px; }
+    .info { margin-top: 20px; }
   </style>
+  <script>
+    // 自動跳格
+    function setupAutoTab() {
+      const inputs = document.querySelectorAll("input[type=number]");
+      inputs.forEach((input, idx) => {
+        input.addEventListener("input", () => {
+          if (input.value.length === 1 && idx < inputs.length - 1) {
+            inputs[idx + 1].focus();
+          }
+        });
+      });
+    }
+    window.onload = setupAutoTab;
+  </script>
 </head>
 <body>
   <h1>預測器 - 追關版 v1</h1>
@@ -28,14 +58,17 @@
   <div class="info">
     <p>目前關數：第 {{ stage }} 關</p>
     <p>建議投注金額：${{ bet }}</p>
+
     {% if prediction %}
-      <p>預測號碼：{{ prediction }}</p>
+      <p>預測號碼：<strong>{{ prediction }}</strong></p>
     {% endif %}
+
     {% if train %}
-      <p>訓練模式命中：{{ hit_count }} / {{ total }}（{{ (hit_count / total * 100)|round(1) if total else 0 }}%）</p>
+      <p>命中：{{ hit_count }} / {{ total }}（{{ (hit_count / total * 100)|round(1) if total else 0 }}%）</p>
     {% endif %}
+
     {% if history %}
-      <h3>輸入紀錄（最新在下）：</h3>
+      <h3>近期輸入紀錄（最新在下）：</h3>
       <ul>
         {% for row in history %}
           <li>{{ row }}</li>
