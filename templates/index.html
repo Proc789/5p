@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>預測器 - 追關版 v1</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input[type=number] { width: 60px; font-size: 20px; margin: 5px; text-align: center; }
+    .number-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
+    .info { margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <h1>預測器 - 追關版 v1</h1>
+  <form method="post">
+    <div class="number-inputs">
+      <input type="number" name="n1" min="1" max="10" required autofocus>
+      <input type="number" name="n2" min="1" max="10" required>
+      <input type="number" name="n3" min="1" max="10" required>
+    </div>
+    <button type="submit">送出</button>
+    <button name="toggle_train" value="1">切換訓練模式</button>
+    <button name="clear" value="1">清除紀錄</button>
+  </form>
+
+  {% if message %}<p style="color:red">{{ message }}</p>{% endif %}
+
+  <div class="info">
+    <p>目前關數：第 {{ stage }} 關</p>
+    <p>建議投注金額：${{ bet }}</p>
+    {% if prediction %}
+      <p>預測號碼：{{ prediction }}</p>
+    {% endif %}
+    {% if train %}
+      <p>訓練模式命中：{{ hit_count }} / {{ total }}（{{ (hit_count / total * 100)|round(1) if total else 0 }}%）</p>
+    {% endif %}
+    {% if history %}
+      <h3>輸入紀錄（最新在下）：</h3>
+      <ul>
+        {% for row in history %}
+          <li>{{ row }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</body>
+</html>
