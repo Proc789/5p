@@ -1,4 +1,4 @@
-# 追關版 v1 - 套用公版 UI + 7碼首關 + 5碼追關邏輯
+# 追關版 v1 - 套用公版 UI + 7碼首關 + 5碼追關邏輯（支援輸入0自動轉10）
 from flask import Flask, render_template, request
 import random
 from collections import Counter
@@ -34,10 +34,7 @@ def get_prediction(data, stage):
 
     excluded = set(hot_numbers + dynamic_numbers)
     remaining_numbers = [n for n in range(1, 11) if n not in excluded]
-    if stage == 1:
-        extra_count = 3
-    else:
-        extra_count = 1
+    extra_count = 3 if stage == 1 else 1
     extra_numbers = random.sample(remaining_numbers, extra_count) if len(remaining_numbers) >= extra_count else []
 
     prediction = sorted(hot_numbers + dynamic_numbers + extra_numbers)
@@ -66,6 +63,8 @@ def index():
         else:
             try:
                 nums = [int(request.form.get(f'n{i}')) for i in range(1, 4)]
+                nums = [10 if n == 0 else n for n in nums]  # 將0轉為10
+
                 if all(1 <= n <= 10 for n in nums):
                     history.append(nums)
 
@@ -80,7 +79,7 @@ def index():
                                 mode['hit_count'] += 1
                                 mode['stage'] = 1  # 命中回第一關
                             else:
-                                mode['stage'] += 1 if mode['stage'] < 6 else 6
+                                mode['stage'] = min(mode['stage'] + 1, 6)
                     else:
                         message = '請先輸入至少 5 筆資料'
                 else:
