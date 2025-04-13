@@ -153,9 +153,9 @@ def index():
             all_hits += 1
             total_tests += 1
 
-   last_hit_status = False
-if history and last_prediction and isinstance(history[-1], list) and len(history[-1]) > 0:
-    last_hit_status = history[-1][0] in last_prediction
+    last_hit_status = False
+    if history and last_prediction and isinstance(history[-1], list) and len(history[-1]) > 0:
+        last_hit_status = history[-1][0] in last_prediction
 
     return render_template_string(TEMPLATE,
         prediction=prediction,
@@ -176,7 +176,7 @@ if history and last_prediction and isinstance(history[-1], list) and len(history
 
 @app.route('/reset')
 def reset():
-    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
+    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, hit_results
     history.clear()
     predictions.clear()
     hit_results.clear()
