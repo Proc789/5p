@@ -133,26 +133,21 @@ def index():
         if predictions:
             champ = current[0]
             src = sources[-1]
+            if champ in predictions[-1]:
+                all_hits += 1
             if champ in src['hot']:
                 hot_hits += 1
                 last_champion_zone = "熱號區"
-                all_hits += 1
             elif champ in src['dynamic']:
                 dynamic_hits += 1
                 last_champion_zone = "動熱區"
-                all_hits += 1
             elif champ in src['extra']:
                 extra_hits += 1
                 last_champion_zone = "補碼區"
-                all_hits += 1
             else:
                 last_champion_zone = "未命中"
-        total_tests += 1
 
-        prediction = predict(mode)
-        predictions.append(prediction)
-    else:
-        last_prediction = predictions[-1] if predictions else []
+
         last_hit_status = False
 
     return render_template_string(TEMPLATE,
