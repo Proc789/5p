@@ -1,4 +1,3 @@
-# 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -89,12 +88,13 @@ function moveToNext(current, nextId) {
 </html>
 """
 
-@app.route('/save_bets', methods=['POST'])
+@app.route('/save_bets', methods=['GET', 'POST'])
 def save_bets():
-    marked_stages = {k for k in request.form.keys() if k.startswith('stage')}
-    bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
-    session['marked_stages'] = marked_stages
-    session['bets'] = bets
+    if request.method == 'POST':
+        marked_stages = {k for k in request.form.keys() if k.startswith('stage')}
+        bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
+        session['marked_stages'] = marked_stages
+        session['bets'] = bets
     return redirect('/')
 
 def weighted_hot(flat, recent):
@@ -217,7 +217,7 @@ def index():
         marked_stages=marked_stages,
         bets=bets)
 
-@app.route('/reset')
+@app.route('/reset', methods=['GET'])
 def reset():
     global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, rhythm_history, rhythm_state
     history.clear()
