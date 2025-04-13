@@ -7,7 +7,6 @@ app = Flask(__name__)
 app.secret_key = 'secret-key'
 
 history = []
-# hit_results = []  # 已移除命中標記需求
 sources = []
 predictions = []
 hot_hits = 0
@@ -119,16 +118,9 @@ def predict(mode):
 def index():
     global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
     prediction = None
-    last_prediction = predictions[-1] if predictions else None
     mode = session.get('mode', '6')
 
     if request.method == 'POST':
-        first = int(request.form['first'])
-        second = int(request.form['second'])
-        third = int(request.form['third'])
-        current = [first, second, third]
-        history.append(current)
-        
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
@@ -136,6 +128,13 @@ def index():
             prediction = predict(mode)
             predictions.append(prediction)
 
+        first = int(request.form['first'])
+        second = int(request.form['second'])
+        third = int(request.form['third'])
+        current = [first, second, third]
+        history.append(current)
+
+        if predictions:
             champ = current[0]
             src = sources[-1]
             if champ in src['hot']:
@@ -152,6 +151,7 @@ def index():
             all_hits += 1
             total_tests += 1
 
+    last_prediction = predictions[-1] if predictions else None
     last_hit_status = False
     if history and last_prediction and isinstance(history[-1], list) and len(history[-1]) > 0:
         last_hit_status = history[-1][0] in last_prediction
@@ -175,10 +175,9 @@ def index():
 
 @app.route('/reset')
 def reset():
-    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, hit_results
+    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
     history.clear()
     predictions.clear()
-    hit_results.clear()
     sources.clear()
     hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
     last_champion_zone = ""
