@@ -7,6 +7,7 @@ app = Flask(__name__)
 app.secret_key = 'secret-key'
 
 history = []
+hit_results = []  # (號碼, 是否命中)
 sources = []
 predictions = []
 hot_hits = 0
@@ -45,6 +46,9 @@ TEMPLATE = """
   {% endif %}
   {% if last_prediction %}
     <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
+    <div style='color: {{ "green" if last_prediction and history and history[-1][0] in last_prediction else "red" }};'>
+      {{ '✅ 命中！' if history and history[-1][0] in last_prediction else '❌ 未命中' }}
+    </div>
   {% endif %}
   {% if last_champion_zone %}<div>冠軍號碼開在：{{ last_champion_zone }}</div>{% endif %}
   <div style='margin-top: 20px; text-align: left;'>
@@ -58,7 +62,7 @@ TEMPLATE = """
     <div style='margin-top: 20px; text-align: left;'>
       <strong>最近輸入紀錄：</strong>
       <ul>
-        {% for row in history[-10:] %}<li>{{ row }}</li>{% endfor %}
+        {% for i, (nums, hit) in enumerate(hit_results[-10:]) %}<li>{{ nums }} - <span style='color: {{ "green" if hit else "red" }};'>{{ '命中' if hit else '未命中' }}</span></li>{% endfor %}
       </ul>
     </div>
   {% endif %}
@@ -124,6 +128,8 @@ def index():
         third = int(request.form['third'])
         current = [first, second, third]
         history.append(current)
+        hit = first in predictions[-1] if predictions else False
+        hit_results.append((current, hit))
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
@@ -168,6 +174,7 @@ def reset():
     global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
     history.clear()
     predictions.clear()
+    hit_results.clear()
     sources.clear()
     hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
     last_champion_zone = ""
