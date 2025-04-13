@@ -212,7 +212,7 @@ def index():
         history=history,
         mode=mode,
         marked_stages=marked_stages,
-        bets=bets
+        bets=bets)
 
 @app.route('/reset')
 def reset():
