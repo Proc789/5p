@@ -1,5 +1,4 @@
-
-# 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
+# app.py - 多碼數預測器完整修正版（含下注表格與節奏統計）
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -19,14 +18,10 @@ last_champion_zone = ""
 rhythm_history = []
 rhythm_state = "未知"
 
-TEMPLATE = """
-<!doctype html>
-<html>
-<head>
-  <meta charset='utf-8'>
+TEMPLATE = """<!doctype html>
+<html><head><meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
-  <title>多碼數預測器</title>
-</head>
+  <title>多碼數預測器</title></head>
 <body style='max-width: 400px; margin: auto; padding-top: 40px; font-family: sans-serif; text-align: center;'>
   <h2>預測器</h2>
   <form method='POST'>
@@ -42,7 +37,6 @@ TEMPLATE = """
   <form method='GET' action='/reset'>
     <button type='submit' style='margin-top: 10px;'>清除所有資料</button>
   </form>
-  <br>
   <form method='POST' action='/save_bets'>
     <div style='text-align: left; padding: 10px;'>
       <strong>下注紀錄：</strong><br>
@@ -86,9 +80,9 @@ function moveToNext(current, nextId) {
   }, 100);
 }
 </script>
-</body>
-</html>
+</body></html>
 """
+
 def weighted_hot(flat, recent):
     score = {}
     for i, group in enumerate(reversed(recent)):
@@ -107,6 +101,7 @@ def predict(mode):
     pool = [n for n in range(1, 11) if n not in used]
     random.shuffle(pool)
 
+    extra = []
     if mode == '4':
         extra = pool[:1]
         result = hot[:2] + dynamic[:1] + extra
@@ -120,15 +115,13 @@ def predict(mode):
         extra = pool[:3]
         result = hot[:2] + dynamic[:2] + extra
     else:
-        extra = pool[:1]
-        result = hot + dynamic + extra
+        result = hot + dynamic + pool[:1]
 
     while len(result) < int(mode):
-        filler = [n for n in range(1, 11) if n not in result]
-        random.shuffle(filler)
-        result += filler[:int(mode) - len(result)]
+        result += [n for n in range(1, 11) if n not in result][:int(mode)-len(result)]
+
     sources.append({'hot': hot, 'dynamic': dynamic, 'extra': extra})
-    return sorted(list(dict.fromkeys(result)))
+    return sorted(result)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -138,21 +131,17 @@ def index():
     last_hit_status = False
 
     if request.method == 'POST':
-        # 處理注碼表單
-        marked_stages = set(request.form.getlist('stage1') + request.form.getlist('stage2') + request.form.getlist('stage3') + request.form.getlist('stage4') + request.form.getlist('stage5'))
-        session['marked_stages'] = marked_stages
+        marked_stages = {k for k in request.form.keys() if k.startswith('stage')}
         bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
+        session['marked_stages'] = marked_stages
         session['bets'] = bets
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
-        first = int(request.form['first'])
-        if first == 0: first = 10
-        second = int(request.form['second'])
-        if second == 0: second = 10
-        third = int(request.form['third'])
-        if third == 0: third = 10
-        current = [first, second, third]
+        first = int(request.form['first'] or 10)
+        second = int(request.form['second'] or 10)
+        third = int(request.form['third'] or 10)
+        current = [10 if n == 0 else n for n in [first, second, third]]
         history.append(current)
 
         last_prediction = predictions[-1] if predictions else []
@@ -161,41 +150,27 @@ def index():
 
         if predictions:
             src = sources[-1]
-            if last_hit_status:
-                all_hits += 1
-            if champ in src['hot']:
-                hot_hits += 1
-                last_champion_zone = "熱號區"
-            elif champ in src['dynamic']:
-                dynamic_hits += 1
-                last_champion_zone = "動熱區"
-            elif champ in src['extra']:
-                extra_hits += 1
-                last_champion_zone = "補碼區"
-            else:
-                last_champion_zone = "未命中"
+            if last_hit_status: all_hits += 1
+            if champ in src['hot']: hot_hits += 1; last_champion_zone = "熱號區"
+            elif champ in src['dynamic']: dynamic_hits += 1; last_champion_zone = "動熱區"
+            elif champ in src['extra']: extra_hits += 1; last_champion_zone = "補碼區"
+            else: last_champion_zone = "未命中"
             total_tests += 1
 
             hot_pool = src['hot'] + src['dynamic']
             rhythm_history.append(1 if champ in hot_pool else 0)
-            if len(rhythm_history) > 5:
-                rhythm_history.pop(0)
+            if len(rhythm_history) > 5: rhythm_history.pop(0)
             recent = rhythm_history[-3:]
             total = sum(recent)
-            if recent == [0, 0, 1]:
-                rhythm_state = "預熱期"
-            elif total >= 2:
-                rhythm_state = "穩定期"
-            elif total == 0:
-                rhythm_state = "失準期"
-            else:
-                rhythm_state = "搖擺期"
+            if recent == [0, 0, 1]: rhythm_state = "預熱期"
+            elif total >= 2: rhythm_state = "穩定期"
+            elif total == 0: rhythm_state = "失準期"
+            else: rhythm_state = "搖擺期"
 
         prediction = predict(mode)
         predictions.append(prediction)
-    else:
-        last_prediction = predictions[-1] if predictions else []
 
+    last_prediction = predictions[-1] if predictions else []
     marked_stages = session.get('marked_stages', set())
     bets = session.get('bets', {})
     return render_template_string(TEMPLATE,
@@ -224,6 +199,14 @@ def reset():
     last_champion_zone = ""
     rhythm_history = []
     rhythm_state = "未知"
+    return redirect('/')
+
+@app.route('/save_bets', methods=['POST'])
+def save_bets():
+    marked_stages = {k for k in request.form.keys() if k.startswith('stage')}
+    bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
+    session['marked_stages'] = marked_stages
+    session['bets'] = bets
     return redirect('/')
 
 if __name__ == '__main__':
