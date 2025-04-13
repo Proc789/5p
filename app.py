@@ -1,114 +1,156 @@
-# 4碼預測器改版：第一關 7碼、第二關起 5碼，七關失敗清空資料，命中回歸第一關（UI 不變）
-from flask import Flask, render_template_string, request, redirect
+# 多碼數整合預測器 - 支援 4/5/6/7 碼，使用加權熱號邏輯
+from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
 
 app = Flask(__name__)
+app.secret_key = 'secret-key'
+
 history = []
+sources = []
 predictions = []
 hot_hits = 0
 dynamic_hits = 0
 extra_hits = 0
 all_hits = 0
 total_tests = 0
-current_stage = 1
-training_mode = False
+last_champion_zone = ""
 
-TEMPLATE = """<html>...（保持不變，略）..."""  # 保留原 TEMPLATE 區塊
+TEMPLATE = """
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>多碼數預測器</title>
+</head>
+<body style='max-width: 400px; margin: auto; padding-top: 40px; font-family: sans-serif; text-align: center;'>
+  <h2>預測器</h2>
+  <form method='POST'>
+    <label><input type='radio' name='mode' value='4' {{ 'checked' if mode == '4' else '' }}> 4碼</label>
+    <label><input type='radio' name='mode' value='5' {{ 'checked' if mode == '5' else '' }}> 5碼</label>
+    <label><input type='radio' name='mode' value='6' {{ 'checked' if mode == '6' else '' }}> 6碼</label>
+    <label><input type='radio' name='mode' value='7' {{ 'checked' if mode == '7' else '' }}> 7碼</label>
+    <br><br>
+    <input name='first' placeholder='冠軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
+    <input name='second' placeholder='亞軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
+    <input name='third' placeholder='季軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
+    <button type='submit'>提交並預測</button>
+  </form>
+  <br>
+  {% if prediction %}
+    <div><strong>本期預測號碼：</strong> {{ prediction }}</div>
+  {% endif %}
+  {% if last_prediction %}
+    <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
+  {% endif %}
+  {% if last_champion_zone %}<div>冠軍號碼開在：{{ last_champion_zone }}</div>{% endif %}
+  <div style='margin-top: 20px; text-align: left;'>
+    <strong>命中統計：</strong><br>
+    冠軍命中次數：{{ all_hits }} / {{ total_tests }}<br>
+    熱號命中次數：{{ hot_hits }}<br>
+    動熱命中次數：{{ dynamic_hits }}<br>
+    補碼命中次數：{{ extra_hits }}<br>
+  </div>
+</body>
+</html>
+"""
+
+def weighted_hot(flat, recent):
+    score = {}
+    for i, group in enumerate(reversed(recent)):
+        for num in group:
+            score[num] = score.get(num, 0) + (3 - i)
+    return sorted(score, key=lambda x: (-score[x], -flat[::-1].index(x)))
+
+def predict(mode):
+    recent = history[-3:]
+    flat = [n for g in recent for n in g]
+    hot = weighted_hot(flat, recent)[:2]
+    dynamic_pool = [n for n in flat if n not in hot]
+    dynamic_freq = Counter(dynamic_pool)
+    dynamic = sorted(dynamic_freq, key=lambda x: (-dynamic_freq[x], -flat[::-1].index(x)))[:2]
+    used = set(hot + dynamic)
+    pool = [n for n in range(1, 11) if n not in used]
+    random.shuffle(pool)
+    if mode == '4':
+        result = hot[:2] + dynamic[:1] + pool[:1]
+    elif mode == '5':
+        result = hot[:2] + dynamic[:2] + pool[:1]
+    elif mode == '6':
+        result = hot[:2] + dynamic[:2] + pool[:2]
+    elif mode == '7':
+        result = hot[:2] + dynamic[:2] + pool[:3]
+    else:
+        result = hot + dynamic + pool[:1]
+    while len(result) < int(mode):
+        extra = [n for n in range(1, 11) if n not in result]
+        random.shuffle(extra)
+        result += extra[:int(mode) - len(result)]
+    sources.append({'hot': hot, 'dynamic': dynamic, 'extra': pool})
+    return sorted(result)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage, training_mode, history, predictions
+    global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
     prediction = None
     last_prediction = predictions[-1] if predictions else None
+    mode = session.get('mode', '6')
 
     if request.method == 'POST':
-        try:
-            first = int(request.form['first']) or 10
-            second = int(request.form['second']) or 10
-            third = int(request.form['third']) or 10
-            current = [first, second, third]
-            history.append(current)
+        first = int(request.form['first'])
+        second = int(request.form['second'])
+        third = int(request.form['third'])
+        current = [first, second, third]
+        history.append(current)
+        mode = request.form.get('mode', '6')
+        session['mode'] = mode
 
-            # 命中判定邏輯（不論是否訓練模式）
-            if len(predictions) >= 1:
-                champion = current[0]
-                if champion in predictions[-1]:
-                    if training_mode:
-                        all_hits += 1
-                    current_stage = 1
-                else:
-                    current_stage += 1
-                    if current_stage > 6:
-                        history.clear()
-                        predictions.clear()
-                        current_stage = 1
+        if len(history) >= 3:
+            prediction = predict(mode)
+            predictions.append(prediction)
 
-                if training_mode:
-                    total_tests += 1
-                    if champion in predictions[-1][:2]:
-                        hot_hits += 1
-                    elif champion == predictions[-1][2]:
-                        dynamic_hits += 1
-                    elif champion in predictions[-1][3:]:
-                        extra_hits += 1
-
-            # 預測條件：統計模式啟用或輸入滿5筆
-            if training_mode or len(history) >= 5:
-                prediction = generate_prediction(current_stage)
-                predictions.append(prediction)
-
-        except:
-            prediction = ['格式錯誤']
+            champ = current[0]
+            src = sources[-1]
+            if champ in src['hot']:
+                hot_hits += 1
+                last_champion_zone = "熱號區"
+            elif champ in src['dynamic']:
+                dynamic_hits += 1
+                last_champion_zone = "動熱區"
+            elif champ in src['extra']:
+                extra_hits += 1
+                last_champion_zone = "補碼區"
+            else:
+                last_champion_zone = "未命中"
+            all_hits += 1
+            total_tests += 1
 
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=last_prediction,
-        stage=current_stage,
-        training=training_mode,
+        stage='-',
         history=history,
+        training=True,
         hot_hits=hot_hits,
         dynamic_hits=dynamic_hits,
         extra_hits=extra_hits,
         all_hits=all_hits,
-        total_tests=total_tests)
-
-@app.route('/toggle')
-def toggle():
-    global training_mode, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage, predictions
-    training_mode = not training_mode
-    hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
-    current_stage = 1
-    predictions = []
-    return redirect('/')
+        total_tests=total_tests,
+        rhythm_state='-',
+        last_champion_zone=last_champion_zone,
+        observation_message='',
+        mode=mode)
 
 @app.route('/reset')
 def reset():
-    global history, predictions, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, current_stage
+    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
     history.clear()
     predictions.clear()
+    sources.clear()
     hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
-    current_stage = 1
+    last_champion_zone = ""
     return redirect('/')
-
-def generate_prediction(stage):
-    recent = history[-3:]
-    flat = [n for group in recent for n in group]
-    freq = Counter(flat)
-    hot = [n for n, _ in freq.most_common(3)][:2]
-
-    flat_dynamic = [n for n in flat if n not in hot]
-    freq_dyn = Counter(flat_dynamic)
-    dynamic_pool = sorted(freq_dyn.items(), key=lambda x: (-x[1], -flat_dynamic[::-1].index(x[0])))
-    dynamic = [n for n, _ in dynamic_pool[:2 if stage == 1 else 2]][:2 if stage == 1 else 2][:1 if stage > 1 else 2]
-
-    used = set(hot + dynamic)
-    pool = [n for n in range(1, 11) if n not in used]
-    random.shuffle(pool)
-    extra_count = 3 if stage == 1 else 1
-    extra = pool[:extra_count]
-
-    return sorted(hot + dynamic + extra)
 
 if __name__ == '__main__':
     app.run(debug=True)
