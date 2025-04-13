@@ -1,4 +1,4 @@
-# 多碼數預測器（修正版）- 使用 6碼追關版命中邏輯
+# 多碼數預測器（完整修正版）- 含 4~7 碼、命中統計、熱區補區分離判定
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -128,12 +128,12 @@ def index():
         history.append(current)
 
         last_prediction = predictions[-1] if predictions else []
-        last_hit_status = current[0] in last_prediction
+        champ = current[0]
+        last_hit_status = champ in last_prediction
 
         if predictions:
-            champ = current[0]
             src = sources[-1]
-            if champ in predictions[-1]:
+            if champ in last_prediction:
                 all_hits += 1
             if champ in src['hot']:
                 hot_hits += 1
@@ -146,8 +146,12 @@ def index():
                 last_champion_zone = "補碼區"
             else:
                 last_champion_zone = "未命中"
+            total_tests += 1
 
-
+        prediction = predict(mode)
+        predictions.append(prediction)
+    else:
+        last_prediction = predictions[-1] if predictions else []
         last_hit_status = False
 
     return render_template_string(TEMPLATE,
