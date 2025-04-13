@@ -1,3 +1,4 @@
+ # 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -40,19 +41,6 @@ TEMPLATE = """
   <form method='GET' action='/reset'>
     <button type='submit' style='margin-top: 10px;'>清除所有資料</button>
   </form>
-  <br>
-  <form method='POST' action='/save_bets'>
-    <div style='text-align: left; padding: 10px;'>
-      <strong>下注紀錄：</strong><br>
-      {% for i in range(1,6) %}
-        <label>
-          <input type='checkbox' name='stage{{i}}' {% if 'stage' + str(i) in marked_stages %}checked{% endif %}>
-          第{{i}}關 注碼：<input name='bet{{i}}' value='{{ bets.get("bet" + str(i), "") }}' style='width: 60px;'>
-        </label><br>
-      {% endfor %}
-    </div>
-    <button type='submit'>儲存注碼</button>
-  </form>
   {% if prediction %}<div><strong>本期預測號碼：</strong> {{ prediction }}</div>{% endif %}
   {% if last_prediction %}
     <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
@@ -88,13 +76,16 @@ function moveToNext(current, nextId) {
 </html>
 """
 
-@app.route('/save_bets', methods=['GET', 'POST'])
-def save_bets():
-    if request.method == 'POST':
-        marked_stages = {k for k in request.form.keys() if k.startswith('stage')}
-        bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
-        session['marked_stages'] = marked_stages
-        session['bets'] = bets
+@app.route('/reset', methods=['GET'])
+def reset():
+    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, rhythm_history, rhythm_state
+    history.clear()
+    predictions.clear()
+    sources.clear()
+    hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
+    last_champion_zone = ""
+    rhythm_history = []
+    rhythm_state = "未知"
     return redirect('/')
 
 def weighted_hot(flat, recent):
@@ -199,8 +190,6 @@ def index():
     else:
         last_prediction = predictions[-1] if predictions else []
 
-    marked_stages = session.get('marked_stages', set())
-    bets = session.get('bets', {})
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=predictions[-2] if len(predictions) >= 2 else None,
@@ -213,21 +202,7 @@ def index():
         total_tests=total_tests,
         rhythm_state=rhythm_state,
         history=history,
-        mode=mode,
-        marked_stages=marked_stages,
-        bets=bets)
-
-@app.route('/reset', methods=['GET'])
-def reset():
-    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, rhythm_history, rhythm_state
-    history.clear()
-    predictions.clear()
-    sources.clear()
-    hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
-    last_champion_zone = ""
-    rhythm_history = []
-    rhythm_state = "未知"
-    return redirect('/')
+        mode=mode)
 
 if __name__ == '__main__':
     app.run(debug=True)
