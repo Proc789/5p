@@ -1,8 +1,10 @@
 {
-  "builds": [{ "src": "app.py", "use": "@vercel/python" }],
-  "routes": [
-    { "src": "/save_bets", "methods": ["POST"], "dest": "app.py" },
-    { "src": "/reset", "methods": ["GET"], "dest": "app.py" },
-    { "src": "/", "methods": ["GET", "POST"], "dest": "app.py" }
-  ]
+  "builds": [{
+    "src": "app.py",
+    "use": "@vercel/python"
+  }],
+  "routes": [{
+    "src": "/(.*)",
+    "dest": "app.py"
+  }]
 }
