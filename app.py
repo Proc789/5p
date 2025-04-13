@@ -153,7 +153,10 @@ def index():
             all_hits += 1
             total_tests += 1
 
-    last_hit_status = history and last_prediction and history[-1][0] in last_prediction
+   last_hit_status = False
+if history and last_prediction and isinstance(history[-1], list) and len(history[-1]) > 0:
+    last_hit_status = history[-1][0] in last_prediction
+
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=last_prediction,
