@@ -91,21 +91,28 @@ def predict(mode):
     used = set(hot + dynamic)
     pool = [n for n in range(1, 11) if n not in used]
     random.shuffle(pool)
+
     if mode == '4':
-        result = hot[:2] + dynamic[:1] + pool[:1]
+        extra = pool[:1]
+        result = hot[:2] + dynamic[:1] + extra
     elif mode == '5':
-        result = hot[:2] + dynamic[:2] + pool[:1]
+        extra = pool[:1]
+        result = hot[:2] + dynamic[:2] + extra
     elif mode == '6':
-        result = hot[:2] + dynamic[:2] + pool[:2]
+        extra = pool[:2]
+        result = hot[:2] + dynamic[:2] + extra
     elif mode == '7':
-        result = hot[:2] + dynamic[:2] + pool[:3]
+        extra = pool[:3]
+        result = hot[:2] + dynamic[:2] + extra
     else:
-        result = hot + dynamic + pool[:1]
+        extra = pool[:1]
+        result = hot + dynamic + extra
+
     while len(result) < int(mode):
-        extra = [n for n in range(1, 11) if n not in result]
-        random.shuffle(extra)
-        result += extra[:int(mode) - len(result)]
-    sources.append({'hot': hot, 'dynamic': dynamic, 'extra': pool})
+        filler = [n for n in range(1, 11) if n not in result]
+        random.shuffle(filler)
+        result += filler[:int(mode) - len(result)]
+    sources.append({'hot': hot, 'dynamic': dynamic, 'extra': extra})
     return sorted(list(dict.fromkeys(result)))
 
 @app.route('/', methods=['GET', 'POST'])
@@ -133,7 +140,7 @@ def index():
 
         if predictions:
             src = sources[-1]
-            if champ in last_prediction:
+            if last_hit_status:
                 all_hits += 1
             if champ in src['hot']:
                 hot_hits += 1
