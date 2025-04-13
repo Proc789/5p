@@ -1,4 +1,4 @@
-# 多碼數整合預測器 - 支援 4/5/6/7 碼，使用加權熱號邏輯
+# 多碼數預測器（修正版）- 使用 6碼追關版命中邏輯
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -7,8 +7,8 @@ app = Flask(__name__)
 app.secret_key = 'secret-key'
 
 history = []
-sources = []
 predictions = []
+sources = []
 hot_hits = 0
 dynamic_hits = 0
 extra_hits = 0
@@ -40,14 +40,10 @@ TEMPLATE = """
     <button type='submit' style='margin-top: 10px;'>清除所有資料</button>
   </form>
   <br>
-  {% if prediction %}
-    <div><strong>本期預測號碼：</strong> {{ prediction }}</div>
-  {% endif %}
+  {% if prediction %}<div><strong>本期預測號碼：</strong> {{ prediction }}</div>{% endif %}
   {% if last_prediction %}
     <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
-    <div style='color: {{ "green" if last_hit_status else "red" }};'>
-      {{ '✅ 命中！' if last_hit_status else '❌ 未命中' }}
-    </div>
+    <div style='color: {{ "green" if last_hit_status else "red" }};'>{{ '✅ 命中！' if last_hit_status else '❌ 未命中' }}</div>
   {% endif %}
   {% if last_champion_zone %}<div>冠軍號碼開在：{{ last_champion_zone }}</div>{% endif %}
   <div style='margin-top: 20px; text-align: left;'>
@@ -60,22 +56,20 @@ TEMPLATE = """
   {% if history %}
     <div style='margin-top: 20px; text-align: left;'>
       <strong>最近輸入紀錄：</strong>
-      <ul>
-        {% for row in history[-10:] %}<li>{{ row }}</li>{% endfor %}
-      </ul>
+      <ul>{% for row in history[-10:] %}<li>{{ row }}</li>{% endfor %}</ul>
     </div>
   {% endif %}
 <script>
-    function moveToNext(current, nextId) {
-      setTimeout(() => {
-        if (current.value === '0') current.value = '10';
-        let val = parseInt(current.value);
-        if (!isNaN(val) && val >= 1 && val <= 10) {
-          document.getElementById(nextId).focus();
-        }
-      }, 100);
+function moveToNext(current, nextId) {
+  setTimeout(() => {
+    if (current.value === '0') current.value = '10';
+    let val = parseInt(current.value);
+    if (!isNaN(val) && val >= 1 && val <= 10) {
+      document.getElementById(nextId).focus();
     }
-  </script>
+  }, 100);
+}
+</script>
 </body>
 </html>
 """
@@ -124,20 +118,14 @@ def index():
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
-        
-        if len(history) >= 3:
-            prediction = predict(mode)
-            predictions.append(prediction)
-
-        if len(history) >= 3:
-            prediction = predict(mode)
-            predictions.append(prediction)
-
         first = int(request.form['first'])
         second = int(request.form['second'])
         third = int(request.form['third'])
         current = [first, second, third]
         history.append(current)
+
+        last_prediction = predictions[-1] if predictions else []
+        last_hit_status = current[0] in last_prediction
 
         if predictions:
             champ = current[0]
@@ -156,26 +144,23 @@ def index():
             all_hits += 1
             total_tests += 1
 
-    last_prediction = predictions[-1] if predictions else None
-    last_hit_status = False
-    if history and last_prediction and isinstance(history[-1], list) and len(history[-1]) > 0:
-        last_hit_status = history[-1][0] in last_prediction
+        prediction = predict(mode)
+        predictions.append(prediction)
+    else:
+        last_prediction = predictions[-1] if predictions else []
+        last_hit_status = False
 
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=last_prediction,
-        stage='-',
-        history=history,
-        training=True,
+        last_hit_status=last_hit_status,
+        last_champion_zone=last_champion_zone,
         hot_hits=hot_hits,
         dynamic_hits=dynamic_hits,
         extra_hits=extra_hits,
         all_hits=all_hits,
         total_tests=total_tests,
-        rhythm_state='-',
-        last_champion_zone=last_champion_zone,
-        observation_message='',
-        last_hit_status=last_hit_status,
+        history=history,
         mode=mode)
 
 @app.route('/reset')
