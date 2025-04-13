@@ -42,6 +42,18 @@ TEMPLATE = """
     <button type='submit' style='margin-top: 10px;'>清除所有資料</button>
   </form>
   <br>
+  <form method='POST'>
+    <div style='text-align: left; padding: 10px;'>
+      <strong>下注紀錄：</strong><br>
+      {% for i in range(1,6) %}
+        <label>
+          <input type='checkbox' name='stage{{i}}' {% if 'stage' + str(i) in marked_stages %}checked{% endif %}>
+          第{{i}}關 注碼：<input name='bet{{i}}' value='{{ bets.get("bet" + str(i), "") }}' style='width: 60px;'>
+        </label><br>
+      {% endfor %}
+    </div>
+    <button type='submit'>儲存注碼</button>
+  </form>
   {% if prediction %}<div><strong>本期預測號碼：</strong> {{ prediction }}</div>{% endif %}
   {% if last_prediction %}
     <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
@@ -126,6 +138,11 @@ def index():
     last_hit_status = False
 
     if request.method == 'POST':
+        # 處理注碼表單
+        marked_stages = set(request.form.getlist('stage1') + request.form.getlist('stage2') + request.form.getlist('stage3') + request.form.getlist('stage4') + request.form.getlist('stage5'))
+        session['marked_stages'] = marked_stages
+        bets = {f"bet{i}": request.form.get(f"bet{i}", '') for i in range(1, 6)}
+        session['bets'] = bets
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
@@ -179,6 +196,8 @@ def index():
     else:
         last_prediction = predictions[-1] if predictions else []
 
+    marked_stages = session.get('marked_stages', set())
+    bets = session.get('bets', {})
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=last_prediction,
@@ -191,7 +210,9 @@ def index():
         total_tests=total_tests,
         rhythm_state=rhythm_state,
         history=history,
-        mode=mode)
+        mode=mode,
+        marked_stages=marked_stages,
+        bets=bets
 
 @app.route('/reset')
 def reset():
