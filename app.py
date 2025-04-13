@@ -124,28 +124,10 @@ def index():
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
-        first = int(request.form['first'])
-        second = int(request.form['second'])
-        third = int(request.form['third'])
-        current = [first, second, third]
-        history.append(current)
-
-        if predictions:
-            champ = current[0]
-            src = sources[-1]
-            if champ in src['hot']:
-                hot_hits += 1
-                last_champion_zone = "熱號區"
-            elif champ in src['dynamic']:
-                dynamic_hits += 1
-                last_champion_zone = "動熱區"
-            elif champ in src['extra']:
-                extra_hits += 1
-                last_champion_zone = "補碼區"
-            else:
-                last_champion_zone = "未命中"
-            all_hits += 1
-            total_tests += 1
+        
+        if len(history) >= 3:
+            prediction = predict(mode)
+            predictions.append(prediction)
 
         if len(history) >= 3:
             prediction = predict(mode)
