@@ -106,7 +106,7 @@ def predict(mode):
         random.shuffle(extra)
         result += extra[:int(mode) - len(result)]
     sources.append({'hot': hot, 'dynamic': dynamic, 'extra': pool})
-    return sorted(result)
+    return sorted(list(dict.fromkeys(result)))
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -119,8 +119,11 @@ def index():
         session['mode'] = mode
 
         first = int(request.form['first'])
+        if first == 0: first = 10
         second = int(request.form['second'])
+        if second == 0: second = 10
         third = int(request.form['third'])
+        if third == 0: third = 10
         current = [first, second, third]
         history.append(current)
 
@@ -131,18 +134,20 @@ def index():
             champ = current[0]
             src = sources[-1]
             if champ in src['hot']:
-                hot_hits += 1
-                last_champion_zone = "熱號區"
-            elif champ in src['dynamic']:
-                dynamic_hits += 1
-                last_champion_zone = "動熱區"
-            elif champ in src['extra']:
-                extra_hits += 1
-                last_champion_zone = "補碼區"
-            else:
-                last_champion_zone = "未命中"
+            hot_hits += 1
+            last_champion_zone = "熱號區"
             all_hits += 1
-            total_tests += 1
+        elif champ in src['dynamic']:
+            dynamic_hits += 1
+            last_champion_zone = "動熱區"
+            all_hits += 1
+        elif champ in src['extra']:
+            extra_hits += 1
+            last_champion_zone = "補碼區"
+            all_hits += 1
+        else:
+            last_champion_zone = "未命中"
+        total_tests += 1
 
         prediction = predict(mode)
         predictions.append(prediction)
