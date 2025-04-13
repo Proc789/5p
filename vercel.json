@@ -3,6 +3,8 @@
     { "src": "app.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "app.py" }
+    { "src": "/save_bets", "methods": ["POST"], "dest": "app.py" },
+    { "src": "/reset", "dest": "app.py" },
+    { "src": "/.*", "dest": "app.py" }
   ]
 }
