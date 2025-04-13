@@ -1,4 +1,4 @@
-# app.py - 多碼數預測器完整修正版（含下注表格與節奏統計）
+# 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -18,10 +18,14 @@ last_champion_zone = ""
 rhythm_history = []
 rhythm_state = "未知"
 
-TEMPLATE = """<!doctype html>
-<html><head><meta charset='utf-8'>
+TEMPLATE = """
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1'>
-  <title>多碼數預測器</title></head>
+  <title>多碼數預測器</title>
+</head>
 <body style='max-width: 400px; margin: auto; padding-top: 40px; font-family: sans-serif; text-align: center;'>
   <h2>預測器</h2>
   <form method='POST'>
@@ -37,6 +41,7 @@ TEMPLATE = """<!doctype html>
   <form method='GET' action='/reset'>
     <button type='submit' style='margin-top: 10px;'>清除所有資料</button>
   </form>
+  <br>
   <form method='POST' action='/save_bets'>
     <div style='text-align: left; padding: 10px;'>
       <strong>下注紀錄：</strong><br>
@@ -80,7 +85,8 @@ function moveToNext(current, nextId) {
   }, 100);
 }
 </script>
-</body></html>
+</body>
+</html>
 """
 
 def weighted_hot(flat, recent):
@@ -208,6 +214,7 @@ def save_bets():
     session['marked_stages'] = marked_stages
     session['bets'] = bets
     return redirect('/')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
