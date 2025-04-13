@@ -32,9 +32,9 @@ TEMPLATE = """
     <label><input type='radio' name='mode' value='6' {{ 'checked' if mode == '6' else '' }}> 6碼</label>
     <label><input type='radio' name='mode' value='7' {{ 'checked' if mode == '7' else '' }}> 7碼</label>
     <br><br>
-    <input name='first' placeholder='冠軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
-    <input name='second' placeholder='亞軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
-    <input name='third' placeholder='季軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
+    <input name='first' id='first' placeholder='冠軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'second')" inputmode='numeric'><br><br>
+    <input name='second' id='second' placeholder='亞軍' required style='width: 80%; padding: 8px;' oninput="moveToNext(this, 'third')" inputmode='numeric'><br><br>
+    <input name='third' id='third' placeholder='季軍' required style='width: 80%; padding: 8px;' inputmode='numeric'><br><br>
     <button type='submit'>提交並預測</button>
   </form>
   <br>
@@ -52,6 +52,17 @@ TEMPLATE = """
     動熱命中次數：{{ dynamic_hits }}<br>
     補碼命中次數：{{ extra_hits }}<br>
   </div>
+<script>
+    function moveToNext(current, nextId) {
+      setTimeout(() => {
+        if (current.value === '0') current.value = '10';
+        let val = parseInt(current.value);
+        if (!isNaN(val) && val >= 1 && val <= 10) {
+          document.getElementById(nextId).focus();
+        }
+      }, 100);
+    }
+  </script>
 </body>
 </html>
 """
