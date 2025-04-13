@@ -1,4 +1,4 @@
-# 多碼數預測器（完整修正版）- 含 4~7 碼、命中統計、熱區補區分離判定
+# 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -120,9 +120,10 @@ def predict(mode):
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
+    global hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, rhythm_history, rhythm_state
     prediction = None
     mode = session.get('mode', '6')
+    last_hit_status = False
 
     if request.method == 'POST':
         mode = request.form.get('mode', '6')
@@ -157,7 +158,7 @@ def index():
             else:
                 last_champion_zone = "未命中"
             total_tests += 1
-            # 更新節奏判定
+
             hot_pool = src['hot'] + src['dynamic']
             rhythm_history.append(1 if champ in hot_pool else 0)
             if len(rhythm_history) > 5:
@@ -177,7 +178,6 @@ def index():
         predictions.append(prediction)
     else:
         last_prediction = predictions[-1] if predictions else []
-        last_hit_status = False
 
     return render_template_string(TEMPLATE,
         prediction=prediction,
@@ -189,18 +189,20 @@ def index():
         extra_hits=extra_hits,
         all_hits=all_hits,
         total_tests=total_tests,
+        rhythm_state=rhythm_state,
         history=history,
-        mode=mode,
-        rhythm_state=rhythm_state
+        mode=mode)
 
 @app.route('/reset')
 def reset():
-    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone
+    global history, predictions, sources, hot_hits, dynamic_hits, extra_hits, all_hits, total_tests, last_champion_zone, rhythm_history, rhythm_state
     history.clear()
     predictions.clear()
     sources.clear()
     hot_hits = dynamic_hits = extra_hits = all_hits = total_tests = 0
     last_champion_zone = ""
+    rhythm_history = []
+    rhythm_state = "未知"
     return redirect('/')
 
 if __name__ == '__main__':
