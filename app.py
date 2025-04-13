@@ -15,6 +15,8 @@ extra_hits = 0
 all_hits = 0
 total_tests = 0
 last_champion_zone = ""
+rhythm_history = []
+rhythm_state = "未知"
 
 TEMPLATE = """
 <!doctype html>
@@ -46,6 +48,7 @@ TEMPLATE = """
     <div style='color: {{ "green" if last_hit_status else "red" }};'>{{ '✅ 命中！' if last_hit_status else '❌ 未命中' }}</div>
   {% endif %}
   {% if last_champion_zone %}<div>冠軍號碼開在：{{ last_champion_zone }}</div>{% endif %}
+  <div>熱號節奏狀態：{{ rhythm_state }}</div>
   <div style='margin-top: 20px; text-align: left;'>
     <strong>命中統計：</strong><br>
     冠軍命中次數：{{ all_hits }} / {{ total_tests }}<br>
@@ -154,6 +157,21 @@ def index():
             else:
                 last_champion_zone = "未命中"
             total_tests += 1
+            # 更新節奏判定
+            hot_pool = src['hot'] + src['dynamic']
+            rhythm_history.append(1 if champ in hot_pool else 0)
+            if len(rhythm_history) > 5:
+                rhythm_history.pop(0)
+            recent = rhythm_history[-3:]
+            total = sum(recent)
+            if recent == [0, 0, 1]:
+                rhythm_state = "預熱期"
+            elif total >= 2:
+                rhythm_state = "穩定期"
+            elif total == 0:
+                rhythm_state = "失準期"
+            else:
+                rhythm_state = "搖擺期"
 
         prediction = predict(mode)
         predictions.append(prediction)
@@ -172,7 +190,8 @@ def index():
         all_hits=all_hits,
         total_tests=total_tests,
         history=history,
-        mode=mode)
+        mode=mode,
+        rhythm_state=rhythm_state
 
 @app.route('/reset')
 def reset():
