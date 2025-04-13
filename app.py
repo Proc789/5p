@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = 'secret-key'
 
 history = []
-hit_results = []  # (號碼, 是否命中)
+# hit_results = []  # 已移除命中標記需求
 sources = []
 predictions = []
 hot_hits = 0
@@ -62,7 +62,7 @@ TEMPLATE = """
     <div style='margin-top: 20px; text-align: left;'>
       <strong>最近輸入紀錄：</strong>
       <ul>
-        {% for i, (nums, hit) in enumerate(hit_results[-10:]) %}<li>{{ nums }} - <span style='color: {{ "green" if hit else "red" }};'>{{ '命中' if hit else '未命中' }}</span></li>{% endfor %}
+        {% for row in history[-10:] %}<li>{{ row }}</li>{% endfor %}
       </ul>
     </div>
   {% endif %}
@@ -128,8 +128,7 @@ def index():
         third = int(request.form['third'])
         current = [first, second, third]
         history.append(current)
-        hit = first in predictions[-1] if predictions else False
-        hit_results.append((current, hit))
+        
         mode = request.form.get('mode', '6')
         session['mode'] = mode
 
