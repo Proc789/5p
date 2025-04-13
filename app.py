@@ -52,6 +52,14 @@ TEMPLATE = """
     動熱命中次數：{{ dynamic_hits }}<br>
     補碼命中次數：{{ extra_hits }}<br>
   </div>
+  {% if history %}
+    <div style='margin-top: 20px; text-align: left;'>
+      <strong>最近輸入紀錄：</strong>
+      <ul>
+        {% for row in history[-10:] %}<li>{{ row }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 <script>
     function moveToNext(current, nextId) {
       setTimeout(() => {
