@@ -134,19 +134,19 @@ def index():
             champ = current[0]
             src = sources[-1]
             if champ in src['hot']:
-            hot_hits += 1
-            last_champion_zone = "熱號區"
-            all_hits += 1
-        elif champ in src['dynamic']:
-            dynamic_hits += 1
-            last_champion_zone = "動熱區"
-            all_hits += 1
-        elif champ in src['extra']:
-            extra_hits += 1
-            last_champion_zone = "補碼區"
-            all_hits += 1
-        else:
-            last_champion_zone = "未命中"
+                hot_hits += 1
+                last_champion_zone = "熱號區"
+                all_hits += 1
+            elif champ in src['dynamic']:
+                dynamic_hits += 1
+                last_champion_zone = "動熱區"
+                all_hits += 1
+            elif champ in src['extra']:
+                extra_hits += 1
+                last_champion_zone = "補碼區"
+                all_hits += 1
+            else:
+                last_champion_zone = "未命中"
         total_tests += 1
 
         prediction = predict(mode)
