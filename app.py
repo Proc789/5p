@@ -46,8 +46,8 @@ TEMPLATE = """
   {% endif %}
   {% if last_prediction %}
     <div><strong>上期預測號碼：</strong> {{ last_prediction }}</div>
-    <div style='color: {{ "green" if last_prediction and history and history[-1][0] in last_prediction else "red" }};'>
-      {{ '✅ 命中！' if history and history[-1][0] in last_prediction else '❌ 未命中' }}
+    <div style='color: {{ "green" if last_hit_status else "red" }};'>
+      {{ '✅ 命中！' if last_hit_status else '❌ 未命中' }}
     </div>
   {% endif %}
   {% if last_champion_zone %}<div>冠軍號碼開在：{{ last_champion_zone }}</div>{% endif %}
@@ -153,6 +153,7 @@ def index():
             all_hits += 1
             total_tests += 1
 
+    last_hit_status = history and last_prediction and history[-1][0] in last_prediction
     return render_template_string(TEMPLATE,
         prediction=prediction,
         last_prediction=last_prediction,
@@ -167,6 +168,7 @@ def index():
         rhythm_state='-',
         last_champion_zone=last_champion_zone,
         observation_message='',
+        last_hit_status=last_hit_status,
         mode=mode)
 
 @app.route('/reset')
