@@ -1,4 +1,4 @@
- # 多碼數預測器（穩定修正版）- 含 4~7 碼、節奏判定、命中統計完整修正
+# 多碼數預測器（優化版：熱號與動熱修正）
 from flask import Flask, render_template_string, request, redirect, session
 import random
 from collections import Counter
@@ -88,20 +88,21 @@ def reset():
     rhythm_state = "未知"
     return redirect('/')
 
-def weighted_hot(flat, recent):
-    score = {}
-    for i, group in enumerate(reversed(recent)):
-        for num in group:
-            score[num] = score.get(num, 0) + (3 - i)
-    return sorted(score, key=lambda x: (-score[x], -flat[::-1].index(x)))
+def get_hot_numbers(flat):
+    freq = Counter(flat)
+    return [num for num, _ in sorted(freq.items(), key=lambda x: (-x[1], -flat[::-1].index(x[0])))[:2]]
+
+def get_dynamic_numbers(flat, hot):
+    pool = [n for n in flat if n not in hot]
+    freq = Counter(pool)
+    top4 = sorted(freq, key=lambda x: (-freq[x], -flat[::-1].index(x)))[:4]
+    return random.sample(top4, 2) if len(top4) >= 2 else top4
 
 def predict(mode):
     recent = history[-3:]
     flat = [n for g in recent for n in g]
-    hot = weighted_hot(flat, recent)[:2]
-    dynamic_pool = [n for n in flat if n not in hot]
-    dynamic_freq = Counter(dynamic_pool)
-    dynamic = sorted(dynamic_freq, key=lambda x: (-dynamic_freq[x], -flat[::-1].index(x)))[:2]
+    hot = get_hot_numbers(flat)
+    dynamic = get_dynamic_numbers(flat, hot)
     used = set(hot + dynamic)
     pool = [n for n in range(1, 11) if n not in used]
     random.shuffle(pool)
